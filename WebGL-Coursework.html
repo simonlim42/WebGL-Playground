@@ -1,0 +1,726 @@
+﻿<html>
+	<head>
+		<title>CM20219 – Coursework 2 – WebGL</title>
+        <meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body { margin: 0; overflow: hidden; }
+			canvas { width: 100%; height: 100%; }
+		</style>
+	</head>
+	<body>
+        <script src="three.js"></script>
+        <script src="OBJloader.js"></script>
+		<script>
+            
+            "use strict"; // https://stackoverflow.com/q/1335851/72470
+            // Global variables that are available in all functions.
+            // Note: You can add your own here, e.g. to store the rendering mode.
+            
+            var camera, scene, renderer, mesh
+
+            //variables for platform
+            var platform;
+            var platformCheck=false;
+
+            //bouncing bunny
+            var bounceCheck=false;
+            var step=0;
+            var bouncingSpeed=0.03;
+
+            //scaling of bunny(requirement 8)
+            var boundingBoxBunny;
+            var boundingBoxCube;
+            var cubeSize;
+            var bunnySize;
+
+            // variables for bunny renders
+            var bunny;
+            var bunnyFaces;
+            var bunnyWireframe;
+            var bunnyVertex;
+
+            //variables for cube renders
+            var mainCube;
+            var wireFrameCube;
+            var texturedCube;
+            var cubeFaces;
+            var cubeVertex;
+           
+            //variables for orbit control
+            var dist;
+            var lookAtCoor;
+            var angle;
+            var gamma;
+            var t=0.1;
+
+            //variables for bunny/cube rotations
+            var rotateCubeX=false;
+            var rotateCubeY=false;
+            var rotateCubeZ=false;
+            var rotateBunnyX=false;
+            var rotateBunnyY=false;
+            var rotateBunnyZ=false;
+
+            //used for rotation of cube and bunny
+            //create "rotation" quaternions
+            const speed = 0.0025;
+            var rotateX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),speed*5);
+            var rotateY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),speed*5);
+            var rotateZ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),speed*5);
+
+            // Initialise the scene, and draw it for the first time.
+            init();
+            animate();
+            
+            // Listen for keyboard events, to react to them.
+            // Note: there are also other event listeners, e.g. for mouse events.
+            document.addEventListener('keydown', handleKeyDown);
+
+            // Scene initialisation. This function is only run once, at the very beginning.
+            function init()
+            {
+                scene = new THREE.Scene();
+
+                // Set up the camera, move it to (3, 4, 5) and look at the origin (0, 0, 0).
+
+
+                camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.set(3, 4, 5);
+                camera.lookAt(new THREE.Vector3(0, 0, 0));
+                lookAtCoor=new THREE.Vector3(0, 0, 0);
+
+                //set the distance at the start for orbit calculations
+                dist=camera.position.distanceTo(lookAtCoor);
+                // Draw a helper grid in the x-z plane (note: y is up).
+                scene.add(new THREE.GridHelper(10, 20, 0xffffff));
+
+                // TO DO: Draw a cube (requirement 1).
+
+                 //face cube render
+                const boxGeometry = new THREE.BoxGeometry(1,1,1);
+                const faceMaterial = new THREE.MeshPhongMaterial( { color: '#8AC'} );
+                cubeFaces = new THREE.Mesh(boxGeometry, faceMaterial);
+                cubeFaces.castShadow = true;
+                cubeFaces.receiveShadow =false;
+                mainCube=cubeFaces;
+                boundingBoxCube= new THREE.Box3().setFromObject(mainCube);
+                cubeSize=boundingBoxCube.getSize();
+                scene.add( mainCube );
+
+                //textured cube render
+                //remember to change the paths to these textures
+                var loader = new THREE.TextureLoader();
+                var materialArray = [
+                    new THREE.MeshPhongMaterial( { map: loader.load("http://localhost:8000/Downloads/webGLCoursework/py.jpeg") } ),
+                    new THREE.MeshPhongMaterial( { map: loader.load("http://localhost:8000/Downloads/webGLCoursework/px.jpeg") } ),
+                    new THREE.MeshPhongMaterial( { map: loader.load("http://localhost:8000/Downloads/webGLCoursework/pz.jpeg") } ),
+                    new THREE.MeshPhongMaterial( { map: loader.load("http://localhost:8000/Downloads/webGLCoursework/ny.jpeg") } ),
+                    new THREE.MeshPhongMaterial( { map: loader.load("http://localhost:8000/Downloads/webGLCoursework/nx.jpeg") } ),
+                    new THREE.MeshPhongMaterial( { map: loader.load("http://localhost:8000/Downloads/webGLCoursework/nz.jpeg") } ),
+                ];
+                texturedCube = new THREE.Mesh( boxGeometry, materialArray );
+                texturedCube.castShadow = true;
+                texturedCube.receiveShadow =false;
+
+                //wireframe cube render
+                var wireframeGeo= new THREE.WireframeGeometry ( boxGeometry );
+                var greenMat = new THREE.LineBasicMaterial( { color:0x008000} );
+                wireFrameCube= new THREE.LineSegments( wireframeGeo,greenMat );
+                wireFrameCube.material.depthTest = false;
+                wireFrameCube.material.opacity = 10;
+                wireFrameCube.material.transparent = false;
+                wireFrameCube.castShadow = true;
+                wireFrameCube.receiveShadow =false;
+
+                //vertex cube render
+                let pointsMaterial = new THREE.PointsMaterial( { size: 0.06, color: 0xff0000 } );
+                cubeVertex = new THREE.Points(boxGeometry,pointsMaterial);
+                cubeVertex.castShadow = true;
+                cubeVertex.receiveShadow =false;
+
+
+                //loading bunny, cat and wolf
+                var objloader;
+                objloader = new THREE.OBJLoader();
+                objloader.load(
+                    //remember to change the path to these objects as it varries from pc to pc
+                        'http://localhost:8000/Downloads/webGLCoursework/bunny-5000.obj',
+                        //Load wireframe render bunny
+                        function ( object ) {
+                            object.traverse( function ( child ) {
+                            if (child.isMesh) {
+                            //to find scale factor of cube and bunny
+                            boundingBoxBunny = new THREE.Box3().setFromObject(child);
+                            bunnySize=boundingBoxBunny.getSize();
+                            var scaleFactorX = cubeSize.x / bunnySize.x;
+                            var scaleFactorY = cubeSize.y / bunnySize.y;
+                            var scaleFactorZ = cubeSize.z / bunnySize.z;
+                            const wireframeGeometry = new THREE.WireframeGeometry(child.geometry);
+                            const wireframeMaterial = new THREE.LineBasicMaterial({color: 0x008000});
+                            const wireframe = new THREE.LineSegments(wireframeGeometry, wireframeMaterial);
+                            bunnyWireframe=wireframe;
+                            bunnyWireframe.scale.set(scaleFactorX,scaleFactorY,scaleFactorZ);
+                            var scaledBoundingBoxBunny = new THREE.Box3().setFromObject(bunnyWireframe);
+                            var center = scaledBoundingBoxBunny.getCenter();
+                            //cube center is 0,0,0
+                            //find difference in center
+                            //set position of bunny based on distance
+                            var posiFactorX = 0-center.x;
+                            var posiFactorY = 0-center.y;
+                            var posiFactorZ = 0-center.z;
+                            bunnyWireframe.position.set(posiFactorX,posiFactorY,posiFactorZ);
+                            //Load vertex render bunny
+                            const material = new THREE.PointsMaterial( { size: 0.01, color: 0xff0000 } );
+                             var points2 = new THREE.Points(child.geometry,material);
+                             points2.scale.set(scaleFactorX,scaleFactorX,scaleFactorX);
+                             points2.position.set(posiFactorX,posiFactorY,posiFactorZ);
+                             bunnyVertex=points2;
+                            //Load faces render bunny
+                            bunnyFaces= new THREE.Mesh(child.geometry,faceMaterial);
+                            bunnyFaces.scale.set(scaleFactorX,scaleFactorX,scaleFactorX);
+                            bunnyFaces.position.set(posiFactorX,posiFactorY,posiFactorZ);
+                            bunny=bunnyFaces;
+                            bunny.castShadow = true;
+                            bunny.receiveShadow =false;
+                            scene.add(bunny);
+                            }
+                            } );
+                        });
+
+                        objloader.load(
+                            //remember to change the path to these objects as it varries from pc to pc
+                        'http://localhost:8000/Downloads/webGLCoursework/wolf.obj',
+                        //Load wolf
+                        function ( object ) {
+                            object.traverse(function(child){
+                                if ( child instanceof THREE.Mesh ) {
+                                 child.material = faceMaterial;
+                                  }
+                            })
+                            
+                            var boundingBoxWolf = new THREE.Box3().setFromObject(object);
+                            var wolfSize=boundingBoxWolf.getSize();
+                            var scaleFactorX =  cubeSize.x/ wolfSize.x;
+                            var scaleFactorY = cubeSize.y / wolfSize.y;
+                            var scaleFactorZ = cubeSize.z / wolfSize.z;
+                            object.scale.set(scaleFactorX,scaleFactorY,scaleFactorZ);
+                            object.position.set(-2,-0.5,0);
+                            scene.add(object);
+                            object.castShadow = true;
+                            object.receiveShadow =false;
+
+                            },
+                        
+                        );
+
+                        objloader.load(
+                            //remember to change the path to these objects as it varries from pc to pc
+                        'http://localhost:8000/Downloads/webGLCoursework/cat.obj',
+                        //Load cat
+                        function ( object ) {
+                            object.traverse(function(child){
+                                if ( child instanceof THREE.Mesh ) {
+                                 child.material = faceMaterial;
+                                  }
+                            })
+                            
+                            var boundingBoxCat = new THREE.Box3().setFromObject(object);
+                            var catSize=boundingBoxCat.getSize();
+                            var scaleFactorX =  cubeSize.x/ catSize.x;
+                            var scaleFactorY = cubeSize.y / catSize.y;
+                            var scaleFactorZ = cubeSize.z / catSize.z;
+                            object.scale.set(scaleFactorX,scaleFactorY,scaleFactorZ);
+                            object.position.set(0,-0.5,-2);
+                            scene.add(object);
+                            object.castShadow = true;
+                            object.receiveShadow =false;
+                            },
+                        );
+                        
+
+                        
+
+
+                // TO DO: Visualise the axes of the global coordinate system (requirment 2).
+
+                //blue line
+                const blueMat = new THREE.LineBasicMaterial( { color: 0x0000ff } );
+                const points = [];
+                points.push( new THREE.Vector3( 0, 0, 15 ) );
+                points.push( new THREE.Vector3( 0, 0, 0) );
+                const geometryLine = new THREE.BufferGeometry().setFromPoints( points );
+                const lineZ = new THREE.Line( geometryLine, blueMat );
+                //red line
+                const redMat = new THREE.LineBasicMaterial( { color: 0xff0000 } );
+                const points2 = [];
+                points2.push( new THREE.Vector3( 0, 0, 0 ) );
+                points2.push( new THREE.Vector3( 15, 0, 0 ) );
+                const geometryLine2 = new THREE.BufferGeometry().setFromPoints( points2 );
+                const lineY = new THREE.Line( geometryLine2 , redMat );
+                //green line
+                const points3 = [];
+                points3.push( new THREE.Vector3( 0, 15, 0 ) );
+                points3.push( new THREE.Vector3( 0, 0, 0 ) );
+                const geometryLine3 = new THREE.BufferGeometry().setFromPoints( points3 );
+                const lineX = new THREE.Line( geometryLine3 , greenMat );
+                scene.add( lineZ );
+                scene.add( lineX );
+                scene.add( lineY );
+
+                //setting up the orange platform
+                var geo = new THREE.PlaneBufferGeometry(2000, 2000, 8, 8);
+                var mat = new THREE.MeshPhongMaterial({ color: 0xFF8C00, side: THREE.DoubleSide }); 
+                var plane = new THREE.Mesh(geo, mat);
+                plane.position.set(0,-1,0);
+                plane.receiveShadow =true;
+                plane.rotateX( - Math.PI / 2);   
+                platform=plane;
+                
+
+                // Basic ambient lighting.  
+                const color = 0xffffff;
+                const intensity = 0.6;
+                const light = new THREE.AmbientLight(color, intensity);
+                scene.add(light);
+                
+                // TO DO: add more complex lighting for 'face' rendering mode (requirement 4).
+                //spotlight lighting
+                const spotLight = new THREE.SpotLight(0xffffff);
+                spotLight.position.set( 1, 2, 1 );
+                spotLight.castShadow=true;
+                spotLight.shadowDarkness = 0.5;
+                spotLight.shadowCameraVisible = true;
+                scene.add(spotLight);
+
+                // Set up the Web GL renderer.
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+				renderer.setPixelRatio(window.devicePixelRatio); // HiDPI/retina rendering
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.shadowMapEnabled = true
+                document.body.appendChild(renderer.domElement);
+
+                // Handle resizing of the browser window.
+				window.addEventListener('resize', handleResize, false);
+            }
+
+            // Handle resizing of the browser window.
+            function handleResize()
+            {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(window.innerWidth, window.innerHeight);
+			}
+
+            // Animation loop function. This function is called whenever an update is required.
+			function animate()
+            {
+
+                requestAnimationFrame(animate);
+                
+                // rotation of bunny
+                if(rotateBunnyX==true){
+                const bunnyQuat=bunny.quaternion;
+                bunnyQuat.multiplyQuaternions(rotateX,bunnyQuat );
+                }
+                if(rotateBunnyY==true){
+                const bunnyQuat=bunny.quaternion;
+                bunnyQuat.multiplyQuaternions(rotateY,bunnyQuat );
+                }
+                if(rotateBunnyZ==true){
+                const bunnyQuat=bunny.quaternion;
+                bunnyQuat.multiplyQuaternions(rotateZ,bunnyQuat );
+                }
+
+                // TO DO: This is a good place for code that rotates your cube (requirement 3).
+                if(rotateCubeX==true){
+                const cubeQuat = mainCube.quaternion;
+                cubeQuat.multiplyQuaternions(rotateX,cubeQuat);
+                }
+                if(rotateCubeY==true){
+                const cubeQuat = mainCube.quaternion;
+                cubeQuat.multiplyQuaternions(rotateY,cubeQuat);
+                 }
+                if(rotateCubeZ==true){
+                const cubeQuat = mainCube.quaternion;
+                cubeQuat.multiplyQuaternions(rotateZ,cubeQuat);
+
+                }
+                //bunny hop
+                if(bounceCheck==true){
+                    step += bouncingSpeed;
+                    bunny.position.x = ( 1 * (Math.cos(step)));
+                    bunny.position.z = (1 * (Math.cos(step)));
+                    bunny.position.y = ( 2 * Math.abs(Math.sin(step)));
+                }
+
+                // Render the current scene to the screen.
+				renderer.render(scene, camera);
+            }
+
+
+            // Handle keyboard presses.
+            function handleKeyDown(event)
+            {
+                //variables to keep track of orientation when switching between render modes
+                var rotationX;
+                var rotationY;
+                var rotationZ;
+                var bunnyRotX;
+                var bunnyRotY;
+                var bunnyRotZ;
+                //variables to calculate new look at coordinate when camera is moved
+                var saveX;
+                var saveY;
+                var saveZ;
+                var diffX;
+                var diffY;
+                var diffZ;
+                switch (event.keyCode)
+                {
+                    //camera movement
+                    case 37://left key-move camera to the left
+                        saveX=camera.position.x;
+                        saveY=camera.position.y;
+                        saveZ=camera.position.z;
+                        camera.translateX(-0.5);
+                        diffX=camera.position.x-saveX;
+                        diffY=camera.position.y-saveY;
+                        diffZ=camera.position.z-saveZ;
+                        lookAtCoor.x=lookAtCoor.x+diffX;
+                        lookAtCoor.y=lookAtCoor.y+diffY;
+                        lookAtCoor.z=lookAtCoor.z+diffZ;
+                        break;
+                    case 38:// up key-move upwards
+                        saveX=camera.position.x;
+                        saveY=camera.position.y;
+                        saveZ=camera.position.z;
+                        camera.translateY(+0.5);  
+                        diffX=camera.position.x-saveX;
+                        diffY=camera.position.y-saveY;
+                        diffZ=camera.position.z-saveZ;
+                        lookAtCoor.x=lookAtCoor.x+diffX;
+                        lookAtCoor.y=lookAtCoor.y+diffY;
+                        lookAtCoor.z=lookAtCoor.z+diffZ;
+                        
+                        break;
+                    case 39://right key-move camera right
+                        saveX=camera.position.x;
+                        saveY=camera.position.y;
+                        saveZ=camera.position.z;
+                        camera.translateX(+0.5);      
+                        diffX=camera.position.x-saveX;
+                        diffY=camera.position.y-saveY;
+                        diffZ=camera.position.z-saveZ;
+                        lookAtCoor.x=lookAtCoor.x+diffX;
+                        lookAtCoor.y=lookAtCoor.y+diffY;
+                        lookAtCoor.z=lookAtCoor.z+diffZ;
+                        break;
+                        
+                    case 40://down key-move camera downwards
+                        saveX=camera.position.x;
+                        saveY=camera.position.y;
+                        saveZ=camera.position.z;
+                        camera.translateY(-0.5);                    
+                        diffX=camera.position.x-saveX;
+                        diffY=camera.position.y-saveY;
+                        diffZ=camera.position.z-saveZ;
+                        lookAtCoor.x=lookAtCoor.x+diffX;
+                        lookAtCoor.y=lookAtCoor.y+diffY;
+                        lookAtCoor.z=lookAtCoor.z+diffZ;
+                        break;
+
+                    case 87://w key-move camera forward
+                        saveX=camera.position.x;
+                        saveY=camera.position.y;
+                        saveZ=camera.position.z;
+                        camera.translateZ(-0.5);                         
+                        diffX=camera.position.x-saveX;
+                        diffY=camera.position.y-saveY;
+                        diffZ=camera.position.z-saveZ;
+                        lookAtCoor.x=lookAtCoor.x+diffX;
+                        lookAtCoor.y=lookAtCoor.y+diffY;
+                        lookAtCoor.z=lookAtCoor.z+diffZ;
+                        break;
+
+                    case 83://s key-move camera backwards
+                        saveX=camera.position.x;
+                        saveY=camera.position.y;
+                        saveZ=camera.position.z;
+                        camera.translateZ(+0.5);  
+                        diffX=camera.position.x-saveX;
+                        diffY=camera.position.y-saveY;
+                        diffZ=camera.position.z-saveZ;
+                        lookAtCoor.x=lookAtCoor.x+diffX;
+                        lookAtCoor.y=lookAtCoor.y+diffY;
+                        lookAtCoor.z=lookAtCoor.z+diffZ;
+                        break;
+
+
+                    //orbits
+                    case 73: //i key- orbit vertically upwards
+                        //find cartesian coordinates
+                        var x=camera.position.x-lookAtCoor.x;
+                        var y=camera.position.y-lookAtCoor.y;
+                        var z=camera.position.z-lookAtCoor.z;  
+                        //convert cartesian coordinates->spherical coordinates                       
+                        if(y<0){
+                            angle= Math.PI-Math.acos(Math.abs(y)/dist);
+                        }else{
+                            angle = Math.acos(y/dist);
+                        }
+                        if(z<0 && x<0){
+                            gamma=Math.atan(Math.abs(x)/(Math.abs(z)))-Math.PI;
+                        }else if(z<0){
+                            gamma = Math.PI - Math.atan(x/(Math.abs(z))); 
+                        }else if(x<0){
+                            gamma = -1* Math.atan(Math.abs(x)/z);
+                        }else{
+                            gamma= Math.atan(x/z);  
+                        }
+                        //change angle for orbit of camera
+                        angle-=t;
+                        //convert spherical->cartesian coordinates
+                        camera.position.z=dist*Math.sin(angle)*Math.cos(gamma)+lookAtCoor.z;
+                        camera.position.y=dist*Math.cos(angle)+lookAtCoor.y;
+                        camera.position.x=dist*Math.sin(angle)*Math.sin(gamma)+lookAtCoor.x;
+                        camera.lookAt(lookAtCoor);
+                        break;
+                        
+                    case 75: //k key-orbit camera vertically downwards
+                    //find cartesian coordinates
+                        var x=camera.position.x-lookAtCoor.x;
+                        var y=camera.position.y-lookAtCoor.y;
+                        var z=camera.position.z-lookAtCoor.z;
+                         //convert cartesian coordinates->spherical coordinates  
+                        if(y<0){
+                            angle= Math.PI-Math.acos(Math.abs(y)/dist);
+                        }else{
+                            angle = Math.acos(y/dist);
+                        }
+                        if(z<0 && x<0){
+                            gamma=Math.atan(Math.abs(x)/(Math.abs(z)))-Math.PI;
+                        }else if(z<0){
+                            gamma = Math.PI - Math.atan(x/(Math.abs(z))); 
+                        }else if(x<0){
+                            gamma = -1* Math.atan(Math.abs(x)/z);
+                        }else{
+                            gamma= Math.atan(x/z);            
+                        }
+                        //change angle for orbit of camera
+                        angle+=t;
+                        //convert spherical->cartesian coordinates
+                        camera.position.z=dist*Math.sin(angle)*Math.cos(gamma)+lookAtCoor.z;
+                        camera.position.y=dist*Math.cos(angle)+lookAtCoor.y;
+                        camera.position.x=dist*Math.sin(angle)*Math.sin(gamma)+lookAtCoor.x;
+                        camera.lookAt(lookAtCoor);
+                        break;
+                        
+                    case 77: //m key-orbit camera to the right
+                    //find cartesian coordinates
+                        var x=camera.position.x-lookAtCoor.x;
+                        var y=camera.position.y-lookAtCoor.y;
+                        var z=camera.position.z-lookAtCoor.z;
+                        //convert cartesian coordinates->spherical coordinates  
+                        if(y<0){
+                            angle= Math.PI-Math.acos(Math.abs(y)/dist);
+                        }else{
+                            angle = Math.acos(y/dist);
+                        }
+                        if(z<0 && x<0){
+                            gamma=Math.atan(Math.abs(x)/(Math.abs(z)))-Math.PI;
+                        }else if(z<0){
+                            gamma = Math.PI - Math.atan(x/(Math.abs(z))); 
+                        }else if(x<0){
+                            gamma = -1* Math.atan(Math.abs(x)/z);
+                        }else{
+                            gamma= Math.atan(x/z);            
+                        }
+                        //change angle for orbit of camera
+                        gamma+=t;
+                        //convert spherical->cartesian coordinates
+                        camera.position.z=dist*Math.sin(angle)*Math.cos(gamma)+lookAtCoor.z;
+                        camera.position.y=dist*Math.cos(angle)+lookAtCoor.y;
+                        camera.position.x=dist*Math.sin(angle)*Math.sin(gamma)+lookAtCoor.x;
+                        camera.lookAt(lookAtCoor);
+                        break
+
+                    case 78://n key-horizonta orbit left
+                        //find cartesian coordinates
+                        var x=camera.position.x-lookAtCoor.x;
+                        var y=camera.position.y-lookAtCoor.y;
+                        var z=camera.position.z-lookAtCoor.z;
+                        //y coordinates do not change hence no need to check angle
+                        if(y<0){
+                            angle= Math.PI-Math.acos(Math.abs(y)/dist);
+                        }else{
+                            angle = Math.acos(y/dist);
+                        }
+                        if(z<0 && x<0){
+                            gamma=Math.atan(Math.abs(x)/(Math.abs(z)))-Math.PI;
+                        }else if(z<0){
+                            gamma = Math.PI - Math.atan(x/(Math.abs(z))); 
+                        }else if(x<0){
+                            gamma = -1* Math.atan(Math.abs(x)/z);
+                        }else{
+                            gamma= Math.atan(x/z);            
+                        }
+                        //change angle for orbit of camera
+                        gamma-=t;
+                        //convert spherical->cartesian coordinates
+                        camera.position.z=dist*Math.sin(angle)*Math.cos(gamma)+lookAtCoor.z;
+                        camera.position.y=dist*Math.cos(angle)+lookAtCoor.y;
+                        camera.position.x=dist*Math.sin(angle)*Math.sin(gamma)+lookAtCoor.x;
+                        camera.lookAt(lookAtCoor);
+                        break;
+                    // Render modes.
+                    case 89: // y=texture;
+                        rotationX=mainCube.rotation.x;
+                        rotationY=mainCube.rotation.y;
+                        rotationZ=mainCube.rotation.z;
+                        scene.remove(mainCube);
+                        mainCube = texturedCube;
+                        scene.add(mainCube);
+                        mainCube.rotation.x=rotationX;
+                        mainCube.rotation.y=rotationY;
+                        mainCube.rotation.z=rotationZ;
+                        break;
+                    case 69:// e=face
+                        rotationX=mainCube.rotation.x;
+                        rotationY=mainCube.rotation.y;
+                        rotationZ=mainCube.rotation.z;
+                        scene.remove(mainCube);
+                        mainCube=cubeFaces;
+                        scene.add(mainCube);
+                        mainCube.rotation.x=rotationX;
+                        mainCube.rotation.y=rotationY;
+                        mainCube.rotation.z=rotationZ;
+                        break;
+
+                    case 82: // r=edge
+                        rotationX=mainCube.rotation.x;
+                        rotationY=mainCube.rotation.y;
+                        rotationZ=mainCube.rotation.z;
+                        scene.remove(mainCube);
+                        mainCube = wireFrameCube;
+                        scene.add(mainCube);
+                        mainCube.rotation.x=rotationX;
+                        mainCube.rotation.y=rotationY;
+                        mainCube.rotation.z=rotationZ;
+                        break;
+
+                    case 84: // t=vertices
+                        rotationX=mainCube.rotation.x;
+                        rotationY=mainCube.rotation.y;
+                        rotationZ=mainCube.rotation.z;
+                        scene.remove( mainCube ); 
+                        mainCube=cubeVertex;
+                        scene.add( mainCube );
+                        mainCube.rotation.x=rotationX;
+                        mainCube.rotation.y=rotationY;
+                        mainCube.rotation.z=rotationZ;
+                        break;
+
+                    // TO DO: add code for starting/stopping rotations (requirement 3).
+
+                        case 49: // 1=rotate about x axis
+                        if(rotateCubeX==false){
+                            rotateCubeX=true;
+                        }else{
+                            rotateCubeX=false;
+                        }
+                        break;
+                        case 50://2=rotate about y axis
+                        if(rotateCubeY==false){
+                            rotateCubeY=true;
+                        }else{
+                            rotateCubeY=false;
+                        }
+                        break;
+                        case 51://3=rotate about z axis
+                        if(rotateCubeZ==false){
+                            rotateCubeZ=true;
+                        }else{
+                            rotateCubeZ=false;
+                        }
+                        break;
+
+                        case 70: // f - bunny edges
+                        bunnyRotX=bunny.rotation.x;
+                        bunnyRotY=bunny.rotation.y;
+                        bunnyRotZ=bunny.rotation.z;
+                        scene.remove(bunny);
+                        bunny=bunnyWireframe;
+                        scene.add(bunny);
+                        bunny.rotation.x=bunnyRotX;
+                        bunny.rotation.y=bunnyRotY;
+                        bunny.rotation.z=bunnyRotZ;
+                        break;
+
+                        case 68: //d- bunny faces
+                        bunnyRotX=bunny.rotation.x;
+                        bunnyRotY=bunny.rotation.y;
+                        bunnyRotZ=bunny.rotation.z;
+                        scene.remove(bunny);
+                        bunny=bunnyFaces;
+                        scene.add(bunny);
+                        bunny.rotation.x=bunnyRotX;
+                        bunny.rotation.y=bunnyRotY;
+                        bunny.rotation.z=bunnyRotZ;
+                        break;
+
+                        case 71  ://g- vertex bunny
+                        bunnyRotX=bunny.rotation.x;
+                        bunnyRotY=bunny.rotation.y;
+                        bunnyRotZ=bunny.rotation.z;
+                        scene.remove(bunny);
+                         bunny=bunnyVertex;
+                        scene.add(bunny);
+                        bunny.rotation.x=bunnyRotX;
+                        bunny.rotation.y=bunnyRotY;
+                        bunny.rotation.z=bunnyRotZ;
+                        break;
+                        
+                        case 52://3-rotate bunny about X
+                        if(rotateBunnyX==false){
+                            rotateBunnyX=true;
+                        }else{
+                            rotateBunnyX=false;
+                        }
+                        break;
+                        case 53://4- rotate bunny about Y
+                        if(rotateBunnyY==false){
+                            rotateBunnyY=true;
+                        }else{
+                            rotateBunnyY=false;
+                        }
+                        break;
+                        case 54://5-rotate bunny abouy Z
+                        if(rotateBunnyZ==false){
+                            rotateBunnyZ=true;
+                        }else{
+                            rotateBunnyZ=false;
+                        }
+                        break;
+                        case 57://9- set up/down platform
+                            if(platformCheck==false){
+                                scene.add(platform);
+                                platformCheck=true;
+                            }else{
+                                scene.remove(platform);
+                                platformCheck=false;
+                            }
+                            break;
+
+                        case 56://8- bounce bunny
+                            if(bounceCheck==false){
+                                bounceCheck=true;
+                            }else{
+                                bounceCheck=false;
+                            }
+                        break;
+                }
+            }
+		</script>
+	</body>
+</html>
