@@ -1,4 +1,4 @@
-### WebGL Project
+## WebGL Project
 
 ## Introduction
 
