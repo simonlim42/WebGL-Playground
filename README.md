@@ -1,14 +1,31 @@
 ## WebGL Project
+![image](https://github.com/simonlim42/WebGL-Playground/assets/61169518/adf27332-e5d1-4901-98a7-5d244bd4eb21)
+![image](https://github.com/simonlim42/WebGL-Playground/assets/61169518/ec992b40-7e18-4a9f-a3b4-f2bd107b6466)
 
 ## Introduction
-
+The WebGL project is a 3D visualization application built using Three.js, a popular JavaScript library for creating 3D graphics in the browser. This project showcases various objects, textures, and lighting effects, allowing users to interact with the scene using keyboard inputs.
+## How to run
 Firstly, it is required that you access the `WebGL-Coursework.html` file and alter the path to the objects/textures loaded. You may run a local web server and access this file, objects, and textures. More information on running things locally can be found at [Three.js Documentation](https://threejs.org/docs/#manual/en/introduction/How-to-run-things-locally). There are 6 textures and 3 objects that paths are required to be altered.
 
-## Starting Scene
+## How to Run
 
-The starting scene contains a cube, a wolf, a bunny, and a cat. There is ambient lighting and spotlight lighting.
+To run the WebGL project, follow these steps:
 
-## Requirements
+1. **File Path Configuration:**
+   - Access the `WebGL-Coursework.html` file.
+   - Modify the paths to the objects and textures loaded in the HTML file. Ensure correct file paths are specified for the 6 textures and 3 objects used in the project.
+
+2. **Local Server Setup:**
+   - Run a local web server to host the project files. This can be achieved using tools like Python's SimpleHTTPServer or Node.js's http-server. For example, using Python, navigate to the project directory in the terminal and run:
+     ```
+     python -m SimpleHTTPServer
+     ```
+     This will start a local server at `http://localhost:8000`.
+
+3. **Accessing the Project:**
+   - Open a web browser and visit `http://localhost:8000/WebGL-Coursework.html` to view the WebGL project.
+
+## Project Requirements
 
 ### Requirement 1
 - The cube is within the scene when the HTML file is loaded.
@@ -28,8 +45,9 @@ The starting scene contains a cube, a wolf, a bunny, and a cat. There is ambient
 ### Requirement 4
 - Face render mode: 'e' key
 - Edges render mode: 'r' key
+  ![image](https://github.com/simonlim42/WebGL-Playground/assets/61169518/4b923f48-789f-4842-9d30-a9f9579f79be)
 - Vertex render mode: 't' key
-
+  ![image](https://github.com/simonlim42/WebGL-Playground/assets/61169518/96bd1029-1595-4cd0-9476-c4b49300fe93)
 ### Requirement 5
 - Camera move up: 'up arrow' key
 - Camera move down: 'down arrow' key
